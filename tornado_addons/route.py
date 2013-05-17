@@ -1,6 +1,16 @@
+#!/usr/bin/python2.7
+#-*-coding:utf-8-*-
+
+"""
+__author__ = "Thomas"
+__date__ = "2013-05-16"
+__desc__ = "handler route RSETFUL"
+__version__ = "0.1"
+"""
+
 import tornado.web
 
-class route(object):
+class route:
     """
     decorates RequestHandlers and builds up a list of routables handlers
 
@@ -19,19 +29,18 @@ class route(object):
 
     Example
     -------
+    route.inithandlercls(BaseHandler)
+    get = route.get
+    post = route.post
 
-    @route('/some/path')
-    class SomeRequestHandler(RequestHandler):
+    @get(r'/list')
+    def list(self):
+    self.write("list")
+    
+    @route("/index")
+    class AjaxHandler(BaseHandler):
         def get(self):
-            goto = self.reverse_url('other')
-            self.redirect(goto)
-
-    # so you can do myapp.reverse_url('other')
-    @route('/some/other/path', name='other')
-    class SomeOtherRequestHandler(RequestHandler):
-        def get(self):
-            goto = self.reverse_url('SomeRequestHandler')
-            self.redirect(goto)
+            self.write("index")
 
     my_routes = route.get_routes()
 
@@ -40,23 +49,48 @@ class route(object):
     Jeremy Kelley - initial work
     Peter Bengtsson - redirects, named routes and improved comments
     Ben Darnell - general awesomeness
+    Thomas Huang - add get post function like handler
     """
 
     _routes = []
 
-    def __init__(self, uri, name=None):
+    @classmethod
+    def inithandlercls(cls, handlercls):
+        cls.BaseHandler = handlercls
+
+    def __init__(self, uri):
         self._uri = uri
-        self.name = name
 
     def __call__(self, _handler):
         """gets called when we class decorate"""
-        name = self.name or _handler.__name__
-        self._routes.append(tornado.web.url(self._uri, _handler, name=name))
+        self._routes.append((self._uri, _handler))
         return _handler
 
     @classmethod
-    def get_routes(self):
-        return self._routes
+    def get(cls, route):
+        def make_handler (handle, *args, **kwargs):
+            class Handler (cls.BaseHandler):
+                @tornado.web.authenticated
+                def get (self, *args, **kwargs):
+                    handle(self, *args, **kwargs)
+            cls._routes.append((route, Handler))
+            return Handler
+        return make_handler
+
+    @classmethod
+    def post(cls, route):
+        def make_handler (handle, *args, **kwargs):
+            class Handler (cls.BaseHandler):
+                @tornado.web.authenticated
+                def post (self, *args, **kwargs):
+                    handle(self, *args, **kwargs)
+            cls._routes.append((route, Handler))
+            return Handler
+        return make_handler
+
+    @classmethod
+    def get_routes(cls):
+        return cls._routes
 
 # route_redirect provided by Peter Bengtsson via the Tornado mailing list
 # and then improved by Ben Darnell.
@@ -69,10 +103,11 @@ class route(object):
 #   class SmartphoneHandler(RequestHandler):
 #        def get(self):
 #            ...
+
+
 def route_redirect(from_, to, name=None):
     route._routes.append(tornado.web.url(
         from_,
         tornado.web.RedirectHandler,
         dict(url=to),
         name=name ))
-
