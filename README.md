@@ -1,4 +1,3 @@
-
 # DEPRECATED
 
 This project has been pretty much abandoned in favor of splitting out the
@@ -48,6 +47,14 @@ Here's a simple example.
 
     import tornado.web
     from tornado_addons.route import route
+    
+    route.inithandlercls(BaseHandler)
+    get = route.get
+    post = route.post
+
+    @get(r'/list')
+    def list(self):
+    	self.write("list")
 
     @route('/blah')
     class SomeHandler(tornado.web.RequestHandler):
